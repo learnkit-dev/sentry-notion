@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return 'bridge is working as expected';
 });
 
 Route::get('/sentry/issues', function () {
