@@ -37,7 +37,22 @@ class CreateNotionPageForSentryIssueController extends Controller
     {
         $props = Notion::getPropertiesForDatabase($databaseId);
 
+        $conditionalProperties = [];
+
         $titleProp = $props->firstWhere('type', 'title');
+
+        $tagsProp = $props
+            ->where('type', 'multi_select')
+            ->where('name', 'Tags')
+            ->first();
+
+        if (filled($tagsProp)) {
+            $conditionalProperties[$tagsProp['name']] = [
+                [
+                    'name' => 'Sentry issue',
+                ]
+            ];
+        }
 
         $response = Http::notion()->post('pages', [
             'parent' => [
@@ -53,6 +68,7 @@ class CreateNotionPageForSentryIssueController extends Controller
                         ]
                     ],
                 ],
+                ...$conditionalProperties,
             ],
         ]);
 
