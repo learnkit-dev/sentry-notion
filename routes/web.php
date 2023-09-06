@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Webhook\CreateNotionPageForSentryIssueController;
+use App\Http\Controllers\Webhook\LinkNotionPageForSentryIssueController;
+use App\Http\Controllers\Webhook\SentryController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 
@@ -32,8 +35,17 @@ Route::get('/sentry/issues', function () {
 
         $data = collect($data)
             ->map(function ($item) {
+                $properties = collect($item['properties'])->map(function ($value, $key) {
+                    return [
+                        'name' => $key,
+                        ...$value,
+                    ];
+                });
+
+                $titleProp = $properties->firstWhere('type', 'title');
+
                 return [
-                    'label' => $item['properties']['Name']['title'][0]['plain_text'],
+                    'label' => $item['properties'][$titleProp['name']]['title'][0]['plain_text'],
                     'value' => $item['id'],
                     'default' => false,
                 ];
@@ -55,60 +67,21 @@ Route::get('/sentry/databases', function () {
     $data = $response->json('results');
 
     return collect($data)->map(function ($item) {
+        $title = $item['title'][0]['plain_text'];
+        $description = $item['description'][0]['plain_text'] ?? '';
+
+        $label = $description ? "{$title} ({$description})" : $title;
+
         return [
-            'label' => $item['title'][0]['plain_text'],
+            'label' => $label,
             'value' => $item['id'],
             'default' => false,
         ];
     })->toArray();
 });
 
-Route::post('/sentry/issues/link', function () {
-    $pageId = request()->input('fields.issue_id');
+Route::post('/sentry/issues/link', LinkNotionPageForSentryIssueController::class);
 
-    $response = Http::notion()->patch("pages/{$pageId}", [
-        'properties' => [
-            'Sentry issue' => [
-                'url' => request()->input('webUrl'),
-            ],
-        ],
-    ]);
+Route::post('/sentry/issues/create', CreateNotionPageForSentryIssueController::class)->name('sentry.issue.create');
 
-    $data = $response->json();
-
-    return [
-        'webUrl' => $data['url'],
-        'project' => request()->input('project.slug'),
-        'identifier' => $data['properties']['ID']['unique_id']['prefix'] . '-' . $data['properties']['ID']['unique_id']['number'],
-    ];
-});
-
-Route::post('/sentry/issues/create', function () {
-    $response = Http::notion()->post('pages', [
-        'parent' => [
-            'database_id' => request()->input('fields.database'),
-        ],
-        'properties' => [
-            'Name' => [
-                'title' => [
-                    [
-                        'text' => [
-                            'content' => request()->input('fields.title'),
-                        ],
-                    ]
-                ],
-            ],
-            'Sentry issue' => [
-                'url' => request()->input('webUrl'),
-            ],
-        ],
-    ]);
-
-    $data = $response->json();
-
-    return [
-        'webUrl' => $data['url'],
-        'project' => request()->input('project.slug'),
-        'identifier' => $data['properties']['ID']['unique_id']['prefix'] . '-' . $data['properties']['ID']['unique_id']['number'],
-    ];
-});
+Route::post('/sentry/webhook', SentryController::class);

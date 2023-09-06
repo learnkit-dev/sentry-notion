@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
 class Notion
@@ -16,5 +17,36 @@ class Notion
                     'Notion-Version' => '2022-06-28',
                 ]);
         });
+    }
+
+    public static function getPropertiesForDatabase(string $databaseId): Collection
+    {
+        $response = Http::notion()->get("databases/{$databaseId}");
+
+        if ($response->status() !== 200) {
+            return collect([]);
+        }
+
+        $properties = $response->json('properties');
+
+        return collect($properties);
+    }
+
+    public static function getSentryBookmarkBlock(string $webUrl): array
+    {
+        return [
+            'type' => 'bookmark',
+            'bookmark' => [
+                'caption' => [
+                    [
+                        'type' => 'text',
+                        'text' => [
+                            'content' => 'Link to Sentry issue',
+                        ],
+                    ]
+                ],
+                'url' => $webUrl,
+            ],
+        ];
     }
 }
