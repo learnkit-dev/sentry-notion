@@ -5,6 +5,7 @@ use App\Http\Controllers\Webhook\LinkNotionPageForSentryIssueController;
 use App\Http\Controllers\Webhook\SentryController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Cache;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,7 +76,7 @@ Route::get('/sentry/databases', function () {
         return [
             'label' => $label,
             'value' => $item['id'],
-            'default' => false,
+            'default' => Cache::get('last_used_notion_database') === $item['id'],
         ];
     })->toArray();
 });

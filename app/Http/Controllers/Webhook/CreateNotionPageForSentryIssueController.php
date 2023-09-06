@@ -6,6 +6,7 @@ use App\Exceptions\NotionPageException;
 use App\Http\Controllers\Concerns\InteractsWithNotionBlocks;
 use App\Http\Controllers\Controller;
 use App\Services\Notion;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class CreateNotionPageForSentryIssueController extends Controller
@@ -35,6 +36,8 @@ class CreateNotionPageForSentryIssueController extends Controller
 
     private function createNotionPage(string $databaseId, string $title): array
     {
+        Cache::put('last_used_notion_database', $databaseId);
+
         $props = Notion::getPropertiesForDatabase($databaseId);
 
         $conditionalProperties = [];
@@ -47,7 +50,7 @@ class CreateNotionPageForSentryIssueController extends Controller
             ->first();
 
         if (filled($tagsProp)) {
-            $conditionalProperties[$tagsProp['name']] = [
+            $conditionalProperties[$tagsProp['name']]['multi_select'] = [
                 [
                     'name' => 'Sentry issue',
                 ]
