@@ -73,6 +73,12 @@ class CreateNotionPageForSentryIssueController extends Controller
                 ],
                 ...$conditionalProperties,
             ],
+            'icon' => [
+                'type' => 'external',
+                'external' => [
+                    'url' => asset('icons/sentry-dark.png'),
+                ],
+            ],
         ]);
 
         if ($response->status() !== 200) {
