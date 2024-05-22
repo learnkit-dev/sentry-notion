@@ -12,11 +12,14 @@ trait InteractsWithNotionBlocks
     {
         $response = Http::notion()->patch("blocks/{$notionPageId}/children", [
             'children' => [
+                Notion::getEmptyBlock(),
                 Notion::getSentryBookmarkBlock(
                     webUrl: $sentryWebUrl,
                 ),
             ],
         ]);
+
+        ray($response->json());
 
         if ($response->status() !== 200) {
             throw new NotionBlockException('Could not create Sentry bookmark block for page: ' . $notionPageId);

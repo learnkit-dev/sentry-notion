@@ -49,4 +49,14 @@ class Notion
             ],
         ];
     }
+
+    public static function getEmptyBlock(): array
+    {
+        return [
+            'type' => 'paragraph',
+            'paragraph' => [
+                'rich_text' => [],
+            ],
+        ];
+    }
 }

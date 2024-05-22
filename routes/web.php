@@ -18,71 +18,108 @@ use Illuminate\Support\Facades\Cache;
 |
 */
 
+function extractNumbers($string): ?int {
+    preg_match_all('/\d+/', $string, $matches);
+
+    $allMatches = $matches[0] ?? null;
+
+    if (!$allMatches) {
+        return null;
+    }
+
+    return ((int)$allMatches[0]) ?? null;
+}
+
 Route::get('/', function () {
     return 'bridge is working as expected';
 });
 
-Route::get('/sentry/issues', function () {
-    $term = request()->input('query');
+Route::group([
+    'prefix' => "sentry/{notionDatabaseId?}",
+], function () {
+    Route::get('issues', function ($notionDatabaseId) {
+        $term = request()->input('query');
 
-    $data = [];
+        $data = [];
 
-    if (filled($term)) {
+        if (filled($term)) {
+            $response = Http::notion()->post("databases/{$notionDatabaseId}/query", [
+                'filter' => [
+                    'or' => [
+                        [
+                            'property' => 'Task name',
+                            'title' => [
+                                'contains' => $term,
+                            ],
+                        ],
+                        [
+                            'property' => 'Task ID',
+                            'unique_id' => [
+                                'equals' => extractNumbers($term),
+                            ],
+                        ]
+                    ],
+                ],
+            ]);
+
+            $data = $response->json('results');
+
+            $data = collect($data)
+                ->map(function ($item) {
+                    $properties = collect($item['properties'])->map(function ($value, $key) {
+                        return [
+                            'name' => $key,
+                            ...$value,
+                        ];
+                    });
+
+                    $titleProp = $properties->firstWhere('type', 'title');
+
+                    $title = $item['properties'][$titleProp['name']]['title'][0]['plain_text'];
+
+                    $idProperty = $item['properties']['Task ID']['unique_id'];
+
+                    $id = $idProperty['prefix'] . '-' . $idProperty['number'];
+
+                    return [
+                        'label' => "[{$id}] - {$title}",
+                        'value' => $item['id'],
+                        'default' => false,
+                    ];
+                })
+                ->toArray();
+        }
+
+        return $data;
+    });
+
+    Route::get('databases', function () {
         $response = Http::notion()->post('search', [
-            'query' => $term,
+            'filter' => [
+                'value' => 'database',
+                'property' => 'object',
+            ],
         ]);
 
         $data = $response->json('results');
 
-        $data = collect($data)
-            ->map(function ($item) {
-                $properties = collect($item['properties'])->map(function ($value, $key) {
-                    return [
-                        'name' => $key,
-                        ...$value,
-                    ];
-                });
+        return collect($data)->map(function ($item) {
+            $title = $item['title'][0]['plain_text'];
+            $description = $item['description'][0]['plain_text'] ?? '';
 
-                $titleProp = $properties->firstWhere('type', 'title');
+            $label = $description ? "{$title} ({$description})" : $title;
 
-                return [
-                    'label' => $item['properties'][$titleProp['name']]['title'][0]['plain_text'],
-                    'value' => $item['id'],
-                    'default' => false,
-                ];
-            })
-            ->toArray();
-    }
+            return [
+                'label' => $label,
+                'value' => $item['id'],
+                'default' => Cache::get('last_used_notion_database') === $item['id'],
+            ];
+        })->toArray();
+    });
 
-    return $data;
+    Route::post('issues/link', LinkNotionPageForSentryIssueController::class);
+
+    Route::post('issues/create', CreateNotionPageForSentryIssueController::class)->name('sentry.issue.create');
+
+    Route::post('webhook', SentryController::class);
 });
-
-Route::get('/sentry/databases', function () {
-    $response = Http::notion()->post('search', [
-        'filter' => [
-            'value' => 'database',
-            'property' => 'object',
-        ],
-    ]);
-
-    $data = $response->json('results');
-
-    return collect($data)->map(function ($item) {
-        $title = $item['title'][0]['plain_text'];
-        $description = $item['description'][0]['plain_text'] ?? '';
-
-        $label = $description ? "{$title} ({$description})" : $title;
-
-        return [
-            'label' => $label,
-            'value' => $item['id'],
-            'default' => Cache::get('last_used_notion_database') === $item['id'],
-        ];
-    })->toArray();
-});
-
-Route::post('/sentry/issues/link', LinkNotionPageForSentryIssueController::class);
-
-Route::post('/sentry/issues/create', CreateNotionPageForSentryIssueController::class)->name('sentry.issue.create');
-
-Route::post('/sentry/webhook', SentryController::class);

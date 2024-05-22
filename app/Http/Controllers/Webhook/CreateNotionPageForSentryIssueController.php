@@ -13,12 +13,10 @@ class CreateNotionPageForSentryIssueController extends Controller
 {
     use InteractsWithNotionBlocks;
 
-    public function __invoke()
+    public function __invoke($notionDatabaseId)
     {
-        $databaseId = request()->input('fields.database');
-
         [$notionPageId, $identifier, $url] = $this->createNotionPage(
-            databaseId: $databaseId,
+            databaseId: $notionDatabaseId,
             title: request()->input('fields.title'),
         );
 
