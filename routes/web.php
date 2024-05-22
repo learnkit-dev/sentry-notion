@@ -17,19 +17,6 @@ use Illuminate\Support\Facades\Cache;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
-
-function extractNumbers($string): ?int {
-    preg_match_all('/\d+/', $string, $matches);
-
-    $allMatches = $matches[0] ?? null;
-
-    if (!$allMatches) {
-        return null;
-    }
-
-    return ((int)$allMatches[0]) ?? null;
-}
-
 Route::get('/', function () {
     return 'bridge is working as expected';
 });
